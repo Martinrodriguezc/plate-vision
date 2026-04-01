@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Alert } from "react-native";
+import { View, Text, StyleSheet, Alert, Linking } from "react-native";
+import { useRouter } from "expo-router";
 import { useAuth } from "../../../hooks/useAuth";
+import { useSubscription } from "../../../hooks/useSubscription";
 import { supabase } from "../../../services/supabase";
+import { restorePurchases, getManagementUrl } from "../../../services/purchases";
 import { Colors } from "../../../constants/Colors";
 import { Typography } from "../../../constants/Typography";
 import { Layout } from "../../../constants/Layout";
@@ -10,7 +13,10 @@ import { Button } from "../../../components/ui/Button";
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const { isPro, scansRemaining, scansTotal, refresh } = useSubscription();
+  const router = useRouter();
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -23,6 +29,33 @@ export default function ProfileScreen() {
         if (data?.display_name) setDisplayName(data.display_name);
       });
   }, [user]);
+
+  const handleRestore = async () => {
+    setRestoring(true);
+    const { success, isPro: restored, error } = await restorePurchases();
+    setRestoring(false);
+
+    if (success) {
+      await refresh();
+      Alert.alert(
+        restored ? "Compras restauradas" : "Sin compras",
+        restored
+          ? "Tu suscripción Pro ha sido restaurada"
+          : "No se encontraron compras anteriores"
+      );
+    } else {
+      Alert.alert("Error", error || "No se pudieron restaurar las compras");
+    }
+  };
+
+  const handleManage = async () => {
+    const url = await getManagementUrl();
+    if (url) {
+      Linking.openURL(url);
+    } else {
+      Linking.openURL("https://apps.apple.com/account/subscriptions");
+    }
+  };
 
   const handleSignOut = () => {
     Alert.alert("Cerrar sesión", "¿Estás seguro?", [
@@ -37,20 +70,65 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {name.charAt(0).toUpperCase()}
-        </Text>
+        <Text style={styles.avatarText}>{name.charAt(0).toUpperCase()}</Text>
       </View>
       <Text style={styles.name}>{name.toUpperCase()}</Text>
       <Text style={styles.email}>{email}</Text>
 
+      {/* Subscription */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>SUSCRIPCIÓN</Text>
         <View style={styles.labelUnderline} />
-        <GoldCard accentBorder style={styles.card}>
-          <Text style={styles.planTitle}>PLAN GRATUITO</Text>
-          <Text style={styles.planSubtitle}>3 escaneos gratis por día</Text>
-        </GoldCard>
+
+        {isPro ? (
+          <GoldCard accentBorder>
+            <View style={styles.planRow}>
+              <Text style={styles.planTitle}>PLAN PRO</Text>
+              <View style={styles.proBadge}>
+                <Text style={styles.proText}>PRO</Text>
+              </View>
+            </View>
+            <Text style={styles.planSubtitle}>Escaneos ilimitados</Text>
+          </GoldCard>
+        ) : (
+          <GoldCard>
+            <Text style={styles.planTitle}>PLAN GRATUITO</Text>
+            <Text style={styles.planSubtitle}>
+              {scansRemaining} de {scansTotal} escaneos restantes hoy
+            </Text>
+          </GoldCard>
+        )}
+      </View>
+
+      {/* Actions */}
+      <View style={styles.section}>
+        {!isPro && (
+          <View style={styles.actionRow}>
+            <Button
+              title="OBTENER PRO"
+              onPress={() => router.push("/(auth)/paywall")}
+            />
+          </View>
+        )}
+
+        {isPro && (
+          <View style={styles.actionRow}>
+            <Button
+              title="GESTIONAR SUSCRIPCIÓN"
+              onPress={handleManage}
+              variant="secondary"
+            />
+          </View>
+        )}
+
+        <View style={styles.actionRow}>
+          <Button
+            title="RESTAURAR COMPRAS"
+            onPress={handleRestore}
+            variant="secondary"
+            loading={restoring}
+          />
+        </View>
       </View>
 
       <View style={styles.signOutContainer}>
@@ -93,7 +171,7 @@ const styles = StyleSheet.create({
   },
   section: {
     width: "100%",
-    marginBottom: 32,
+    marginBottom: 24,
   },
   sectionLabel: {
     ...Typography.sectionLabel,
@@ -105,8 +183,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
     marginBottom: Layout.spacing.md,
   },
-  card: {
-    marginTop: 0,
+  planRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   planTitle: {
     fontSize: 16,
@@ -118,6 +198,22 @@ const styles = StyleSheet.create({
   },
   planSubtitle: {
     ...Typography.body,
+  },
+  proBadge: {
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    borderRadius: Layout.borderRadius.sharp,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+  },
+  proText: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: Colors.accent,
+    letterSpacing: 2,
+  },
+  actionRow: {
+    marginBottom: 8,
   },
   signOutContainer: {
     marginTop: "auto",

@@ -10,6 +10,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScanResult } from "../../types/scan";
 import { saveScan } from "../../services/scans";
+import { useSubscription } from "../../hooks/useSubscription";
 import { Colors } from "../../constants/Colors";
 import { Typography } from "../../constants/Typography";
 import { Layout } from "../../constants/Layout";
@@ -26,6 +27,7 @@ export default function ResultScreen() {
     resultJson: string;
   }>();
   const router = useRouter();
+  const { refresh } = useSubscription();
 
   let result: ScanResult & { notes?: string };
   try {
@@ -44,6 +46,7 @@ export default function ResultScreen() {
     setSaving(false);
 
     if (success) {
+      await refresh();
       Alert.alert("Guardado", "Escaneo guardado en tu historial", [
         { text: "OK", onPress: () => router.replace("/(auth)/(tabs)/history") },
       ]);

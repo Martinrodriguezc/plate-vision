@@ -4,9 +4,19 @@ import { Colors } from "../../../constants/Colors";
 import { Typography } from "../../../constants/Typography";
 import { Layout } from "../../../constants/Layout";
 import { Button } from "../../../components/ui/Button";
+import { useSubscription } from "../../../hooks/useSubscription";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { isPro, scansRemaining, loading } = useSubscription();
+
+  const handleScan = () => {
+    if (!isPro && scansRemaining <= 0) {
+      router.push("/(auth)/paywall");
+      return;
+    }
+    router.push("/(auth)/camera");
+  };
 
   return (
     <View style={styles.container}>
@@ -29,10 +39,24 @@ export default function HomeScreen() {
         Apunta tu cámara a la barra{"\n"}para calcular el peso total
       </Text>
 
+      {/* Scan counter */}
+      {!loading && !isPro && (
+        <View style={styles.counterContainer}>
+          <Text style={styles.counterNumber}>{scansRemaining}</Text>
+          <Text style={styles.counterLabel}>ESCANEOS HOY</Text>
+        </View>
+      )}
+
+      {isPro && (
+        <View style={styles.proBadge}>
+          <Text style={styles.proText}>PRO</Text>
+        </View>
+      )}
+
       <View style={styles.buttonContainer}>
         <Button
-          title="INICIAR ESCANEO"
-          onPress={() => router.push("/(auth)/camera")}
+          title={!isPro && scansRemaining <= 0 ? "VER PLANES" : "INICIAR ESCANEO"}
+          onPress={handleScan}
         />
       </View>
     </View>
@@ -86,7 +110,35 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Typography.body,
     textAlign: "center",
-    marginBottom: 48,
+    marginBottom: 24,
+  },
+  counterContainer: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  counterNumber: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: Colors.accent,
+  },
+  counterLabel: {
+    ...Typography.sectionLabel,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  proBadge: {
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    borderRadius: Layout.borderRadius.sharp,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    marginBottom: 32,
+  },
+  proText: {
+    ...Typography.sectionLabel,
+    color: Colors.accent,
+    fontSize: 14,
+    letterSpacing: 4,
   },
   buttonContainer: {
     width: "100%",
