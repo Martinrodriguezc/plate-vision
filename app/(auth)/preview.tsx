@@ -9,7 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { compressImage } from "../../utils/image";
+import { analyzePlate } from "../../services/analyze";
 import { Colors } from "../../constants/Colors";
 
 export default function PreviewScreen() {
@@ -21,23 +21,28 @@ export default function PreviewScreen() {
     if (!uri) return;
     try {
       setAnalyzing(true);
-      const compressedUri = await compressImage(uri);
+      const result = await analyzePlate(uri);
 
-      // TODO Fase 3: enviar a Claude Vision via Edge Function
-      Alert.alert(
-        "Imagen lista",
-        "La imagen fue comprimida. La integración con IA se implementará en Fase 3.",
-        [{ text: "OK", onPress: () => router.back() }]
-      );
+      if (!result.success) {
+        Alert.alert("Error", result.error, [
+          { text: "Reintentar", onPress: handleAnalyze },
+          { text: "Volver", onPress: () => router.back() },
+        ]);
+        return;
+      }
+
+      router.replace({
+        pathname: "/(auth)/result",
+        params: {
+          imageUri: uri,
+          resultJson: JSON.stringify(result.data),
+        },
+      });
     } catch (error: any) {
-      Alert.alert("Error", "No se pudo procesar la imagen");
+      Alert.alert("Error", "No se pudo analizar la imagen");
     } finally {
       setAnalyzing(false);
     }
-  };
-
-  const handleRetake = () => {
-    router.back();
   };
 
   if (!uri) {
@@ -55,14 +60,17 @@ export default function PreviewScreen() {
       {analyzing && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Comprimiendo imagen...</Text>
+          <Text style={styles.loadingText}>Analizando discos...</Text>
+          <Text style={styles.loadingSubtext}>
+            La IA está reconociendo los pesos
+          </Text>
         </View>
       )}
 
       <View style={styles.actions}>
         <Pressable
           style={styles.secondaryButton}
-          onPress={handleRetake}
+          onPress={() => router.back()}
           disabled={analyzing}
         >
           <Text style={styles.secondaryText}>🔄  Retomar</Text>
@@ -90,14 +98,19 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(0,0,0,0.8)",
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
+    gap: 12,
   },
   loadingText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  loadingSubtext: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 14,
   },
   actions: {
     flexDirection: "row",

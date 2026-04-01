@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, StyleSheet, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, Alert, Platform, Pressable } from "react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { signInWithApple } from "../services/appleAuth";
 import { Colors } from "../constants/Colors";
@@ -7,7 +7,7 @@ import { Colors } from "../constants/Colors";
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
-  const handleAppleSignIn = async () => {
+  const handleSignIn = async () => {
     try {
       setLoading(true);
       await signInWithApple();
@@ -18,6 +18,8 @@ export default function LoginScreen() {
       setLoading(false);
     }
   };
+
+  const showDevButton = __DEV__;
 
   return (
     <View style={styles.container}>
@@ -36,7 +38,7 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.footer}>
-        {Platform.OS === "ios" ? (
+        {Platform.OS === "ios" && !showDevButton ? (
           <AppleAuthentication.AppleAuthenticationButton
             buttonType={
               AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
@@ -46,11 +48,23 @@ export default function LoginScreen() {
             }
             cornerRadius={12}
             style={styles.appleButton}
-            onPress={handleAppleSignIn}
+            onPress={handleSignIn}
           />
         ) : (
-          <Text style={styles.platformNote}>
-            Sign in with Apple solo disponible en iOS
+          <Pressable
+            style={[styles.devButton, loading && styles.disabled]}
+            onPress={handleSignIn}
+            disabled={loading}
+          >
+            <Text style={styles.devButtonText}>
+              {loading ? "Conectando..." : showDevButton ? "🔧 Dev Sign In" : " Sign in with Apple"}
+            </Text>
+          </Pressable>
+        )}
+
+        {showDevButton && (
+          <Text style={styles.devNote}>
+            Modo desarrollo — Apple Sign In requiere build nativo
           </Text>
         )}
       </View>
@@ -96,13 +110,30 @@ const styles = StyleSheet.create({
   footer: {
     marginBottom: 48,
     alignItems: "center",
+    gap: 12,
   },
   appleButton: {
     width: "100%",
     height: 56,
   },
-  platformNote: {
+  devButton: {
+    width: "100%",
+    height: 56,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  devButtonText: {
+    color: "#000",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+  devNote: {
     color: Colors.textSecondary,
-    fontSize: 14,
+    fontSize: 12,
   },
 });
