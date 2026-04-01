@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,8 +10,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ScanResult } from "../../types/scan";
-import { saveScan } from "../../services/scans";
+import { Scan } from "../../types/scan";
+import { deleteScan, getScanImageUrl } from "../../services/scans";
 import { Colors } from "../../constants/Colors";
 
 const DISC_COLORS: Record<string, string> = {
@@ -37,44 +37,64 @@ function getDiscColor(color: string): string {
   return Colors.textSecondary;
 }
 
-export default function ResultScreen() {
-  const { imageUri, resultJson } = useLocalSearchParams<{
-    imageUri: string;
-    resultJson: string;
-  }>();
+export default function DetailScreen() {
+  const { scanJson } = useLocalSearchParams<{ scanJson: string }>();
   const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string>("");
 
-  let result: ScanResult & { notes?: string };
+  let scan: Scan;
   try {
-    result = JSON.parse(resultJson || "{}");
+    scan = JSON.parse(scanJson || "{}");
   } catch {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>Error al cargar resultados</Text>
+        <Text style={styles.errorText}>Error al cargar el escaneo</Text>
       </View>
     );
   }
 
-  const [saving, setSaving] = useState(false);
-  const isLowConfidence = result.confidence < 70;
+  const result = scan.result_json;
 
-  const handleSave = async () => {
-    if (!imageUri) return;
-    setSaving(true);
-    const { success, error } = await saveScan(imageUri, result, result.unit);
-    setSaving(false);
+  useEffect(() => {
+    getScanImageUrl(scan.image_url).then(setImageUrl);
+  }, [scan.image_url]);
 
-    if (success) {
-      Alert.alert("Guardado", "Escaneo guardado en tu historial", [
-        { text: "OK", onPress: () => router.replace("/(auth)/(tabs)/history") },
-      ]);
-    } else {
-      Alert.alert("Error", error || "No se pudo guardar");
-    }
+  const handleDelete = () => {
+    Alert.alert(
+      "Eliminar escaneo",
+      "¿Estás seguro? Esta acción no se puede deshacer.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            const { success, error } = await deleteScan(
+              scan.id,
+              scan.image_url
+            );
+            setDeleting(false);
+            if (success) {
+              router.back();
+            } else {
+              Alert.alert("Error", error || "No se pudo eliminar");
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const handleNewScan = () => {
-    router.replace("/(auth)/camera");
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("es-CL", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   return (
@@ -82,47 +102,39 @@ export default function ResultScreen() {
       style={styles.container}
       contentContainerStyle={styles.content}
     >
-      {/* Imagen */}
-      <Image
-        source={{ uri: imageUri }}
-        style={styles.image}
-        resizeMode="cover"
-      />
+      {imageUrl ? (
+        <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
+      ) : (
+        <View style={[styles.image, styles.imagePlaceholder]}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
+      )}
 
       {/* Peso total */}
       <View style={styles.totalSection}>
         <Text style={styles.totalLabel}>Peso Total</Text>
         <Text style={styles.totalWeight}>
-          {result.totalWeight}
-          <Text style={styles.totalUnit}> {result.unit}</Text>
+          {scan.total_weight}
+          <Text style={styles.totalUnit}> {scan.unit}</Text>
         </Text>
+        <Text style={styles.dateText}>{formatDate(scan.created_at)}</Text>
       </View>
-
-      {/* Confianza */}
-      {isLowConfidence && (
-        <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>
-            ⚠️ Resultado incierto ({result.confidence}% confianza). Verifica
-            manualmente.
-          </Text>
-        </View>
-      )}
 
       {/* Barra */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Barra</Text>
         <View style={styles.card}>
-          <Text style={styles.cardText}>{result.bar?.type}</Text>
+          <Text style={styles.cardText}>{result?.bar?.type}</Text>
           <Text style={styles.cardWeight}>
-            {result.bar?.weight} {result.unit}
+            {result?.bar?.weight} {scan.unit}
           </Text>
         </View>
       </View>
 
       {/* Discos */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Discos detectados</Text>
-        {result.discs?.map((disc, index) => (
+        <Text style={styles.sectionTitle}>Discos</Text>
+        {result?.discs?.map((disc, index) => (
           <View key={index} style={styles.discRow}>
             <View
               style={[
@@ -131,7 +143,7 @@ export default function ResultScreen() {
               ]}
             />
             <Text style={styles.discInfo}>
-              {disc.color} — {disc.weight} {result.unit}
+              {disc.color} — {disc.weight} {scan.unit}
             </Text>
             <Text style={styles.discQuantity}>×{disc.quantity}</Text>
             <Text style={styles.discSide}>
@@ -145,44 +157,22 @@ export default function ResultScreen() {
         ))}
       </View>
 
-      {/* Notas */}
-      {result.notes ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notas</Text>
-          <Text style={styles.notesText}>{result.notes}</Text>
-        </View>
-      ) : null}
+      {scan.manually_corrected && (
+        <Text style={styles.correctedBadge}>✏️ Corregido manualmente</Text>
+      )}
 
-      {/* Confianza */}
-      <View style={styles.confidenceRow}>
-        <Text style={styles.confidenceLabel}>Confianza del análisis</Text>
-        <Text
-          style={[
-            styles.confidenceValue,
-            { color: isLowConfidence ? Colors.warning : Colors.success },
-          ]}
-        >
-          {result.confidence}%
-        </Text>
-      </View>
-
-      {/* Acciones */}
-      <View style={styles.actions}>
-        <Pressable style={styles.secondaryButton} onPress={handleNewScan}>
-          <Text style={styles.secondaryText}>📸  Escanear otra</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.primaryButton, saving && styles.disabled]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.primaryText}>💾  Guardar</Text>
-          )}
-        </Pressable>
-      </View>
+      {/* Eliminar */}
+      <Pressable
+        style={[styles.deleteButton, deleting && styles.disabled]}
+        onPress={handleDelete}
+        disabled={deleting}
+      >
+        {deleting ? (
+          <ActivityIndicator color={Colors.error} />
+        ) : (
+          <Text style={styles.deleteText}>🗑️  Eliminar escaneo</Text>
+        )}
+      </Pressable>
     </ScrollView>
   );
 }
@@ -198,6 +188,11 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: 250,
+  },
+  imagePlaceholder: {
+    backgroundColor: Colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
   },
   totalSection: {
     alignItems: "center",
@@ -220,17 +215,10 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     color: Colors.textSecondary,
   },
-  warningBanner: {
-    backgroundColor: "rgba(251,191,36,0.15)",
-    marginHorizontal: 16,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  warningText: {
-    color: Colors.warning,
-    fontSize: 14,
-    textAlign: "center",
+  dateText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginTop: 8,
   },
   section: {
     paddingHorizontal: 16,
@@ -296,54 +284,28 @@ const styles = StyleSheet.create({
     width: 40,
     textAlign: "right",
   },
-  notesText: {
-    color: Colors.textSecondary,
+  correctedBadge: {
+    color: Colors.warning,
     fontSize: 14,
-    lineHeight: 20,
+    textAlign: "center",
+    marginBottom: 16,
   },
-  confidenceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  confidenceLabel: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-  },
-  confidenceValue: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  actions: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  secondaryButton: {
-    flex: 1,
+  deleteButton: {
+    marginHorizontal: 16,
+    marginTop: 16,
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.error,
     alignItems: "center",
   },
-  secondaryText: {
-    color: Colors.text,
+  deleteText: {
+    color: Colors.error,
     fontSize: 16,
     fontWeight: "600",
   },
-  primaryButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
-    alignItems: "center",
-  },
-  primaryText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+  disabled: {
+    opacity: 0.5,
   },
   center: {
     flex: 1,
