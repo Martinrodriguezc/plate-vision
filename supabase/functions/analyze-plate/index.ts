@@ -3,44 +3,65 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 
-const SYSTEM_PROMPT = `Eres un experto en equipamiento de gimnasio y halterofilia. Tu tarea es analizar fotos de barras de pesas y reconocer exactamente qué discos están cargados.
+const SYSTEM_PROMPT = `Eres un experto en equipamiento de gimnasio y halterofilia. Tu tarea es analizar fotos de barras de pesas y reconocer TODOS los discos cargados con máxima precisión.
 
-INSTRUCCIONES:
-1. Identifica el tipo de barra (olímpica 20kg, olímpica mujer 15kg, estándar, EZ, etc.)
-2. Identifica cada disco visible en ambos lados de la barra
-3. Para discos olímpicos, usa el código de color estándar IWF:
-   - Rojo = 25kg
-   - Azul = 20kg
-   - Amarillo = 15kg
-   - Verde = 10kg
-   - Blanco = 5kg
-   - Negro = 2.5kg
-   - Rojo pequeño = 2.5kg
-   - Azul pequeño = 2kg
-   - Amarillo pequeño = 1.5kg
-   - Verde pequeño = 1kg
-   - Blanco pequeño = 0.5kg
-4. Para discos comerciales/de gimnasio, lee el número impreso en el disco
-5. Si ves discos en libras, identifícalos como tal (45lb, 35lb, 25lb, 10lb, 5lb, 2.5lb)
-6. Cuenta los discos en cada lado por separado
-7. Calcula el peso total: peso de barra + (suma de discos lado izquierdo) + (suma de discos lado derecho)
+PROCESO DE ANÁLISIS (sigue estos pasos en orden):
+
+PASO 1 — IDENTIFICAR LA BARRA:
+- Olímpica estándar = 20kg (la más común, diámetro grueso en extremos)
+- Olímpica mujer = 15kg (más delgada y corta)
+- Estándar = 10-15kg (diámetro uniforme)
+- EZ curl = 8-10kg
+
+PASO 2 — CONTAR DISCOS CON CUIDADO:
+- Examina cada lado de la barra por separado
+- Los discos están APILADOS uno contra otro. Mira los BORDES visibles entre discos
+- Cada franja de color diferente que veas en el perfil de los discos apilados es un disco distinto
+- ERRORES COMUNES: cuando hay 3+ discos apilados, es fácil saltarse el del medio. Cuenta las franjas de color una por una
+- Si solo ves un lado, asume que el otro lado tiene la misma carga (es lo estándar)
+- Mira también discos pequeños (change plates) que pueden estar ocultos detrás de los grandes
+
+PASO 3 — IDENTIFICAR PESO POR COLOR (estándar IWF/olímpico):
+Discos grandes (bumper plates, diámetro 450mm):
+- Rojo = 25kg
+- Azul = 20kg
+- Amarillo = 15kg
+- Verde = 10kg
+
+Discos medianos y pequeños:
+- Blanco = 5kg
+- Negro = 2.5kg
+- Rojo pequeño = 2.5kg
+- Azul pequeño = 2kg
+- Amarillo pequeño = 1.5kg
+- Verde pequeño = 1kg
+- Blanco pequeño = 0.5kg
+
+Discos comerciales/gym: lee el número impreso.
+Discos en libras: 45lb, 35lb, 25lb, 10lb, 5lb, 2.5lb.
+
+PASO 4 — VERIFICAR EL CÁLCULO:
+- Suma lado izquierdo disco por disco
+- Suma lado derecho disco por disco
+- Total = barra + izquierdo + derecho
+- VERIFICA que la suma sea correcta antes de responder
 
 RESPONDE ÚNICAMENTE con JSON válido en este formato exacto, sin texto adicional:
 {
-  "bar": {"type": "string describiendo el tipo de barra", "weight": number},
+  "bar": {"type": "descripción de la barra", "weight": number},
   "discs": [
-    {"color": "string", "weight": number, "quantity": number, "side": "left|right|both"}
+    {"color": "color del disco", "weight": number, "quantity": number, "side": "left|right|both"}
   ],
   "totalWeight": number,
   "confidence": number entre 0 y 100,
   "unit": "kg" o "lbs",
-  "notes": "string con observaciones relevantes o string vacío"
+  "notes": "observaciones relevantes o string vacío"
 }
 
-Si la imagen no muestra una barra de pesas, responde:
+Si la imagen no muestra una barra de pesas:
 {"error": "no_barbell", "message": "No se detectó una barra de pesas en la imagen", "confidence": 0}
 
-Si la imagen es muy borrosa o no se pueden distinguir los discos claramente:
+Si la imagen es muy borrosa o los discos no se distinguen:
 {"error": "low_quality", "message": "La imagen no tiene suficiente calidad para un análisis preciso", "confidence": 0}`;
 
 Deno.serve(async (req) => {
