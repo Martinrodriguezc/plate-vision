@@ -23,7 +23,7 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "",
+        "appleId": "martin.rodriguez@uc.cl",
         "ascAppId": "6761502244",
         "appleTeamId": "Y299YLY7P9"
       }
