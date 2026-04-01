@@ -1,9 +1,9 @@
-import { Redirect, Slot } from "expo-router";
+import { Redirect } from "expo-router";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
-import { useAuth } from "../../hooks/useAuth";
-import { Colors } from "../../constants/Colors";
+import { useAuth } from "../hooks/useAuth";
+import { Colors } from "../constants/Colors";
 
-export default function AuthLayout() {
+export default function Index() {
   const { session, loading } = useAuth();
 
   if (loading) {
@@ -14,11 +14,11 @@ export default function AuthLayout() {
     );
   }
 
-  if (!session) {
-    return <Redirect href="/login" />;
+  if (session) {
+    return <Redirect href="/(auth)/(tabs)" />;
   }
 
-  return <Slot />;
+  return <Redirect href="/login" />;
 }
 
 const styles = StyleSheet.create({
