@@ -53,6 +53,13 @@ export async function analyzePlate(
 
     clearTimeout(timeout);
 
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `Error del servidor (${response.status})`,
+      };
+    }
+
     const result = await response.json();
 
     if (result.error) {

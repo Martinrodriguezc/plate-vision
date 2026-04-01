@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { Scan, ScanResult } from "../types/scan";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { decode } from "base-64";
 
 export async function saveScan(

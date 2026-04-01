@@ -1,31 +1,5 @@
-import { Redirect, Slot } from "expo-router";
-import { ActivityIndicator, View, StyleSheet } from "react-native";
-import { useAuth } from "../../hooks/useAuth";
-import { Colors } from "../../constants/Colors";
+import { Slot } from "expo-router";
 
 export default function AuthLayout() {
-  const { session, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
-
-  if (!session) {
-    return <Redirect href="/login" />;
-  }
-
   return <Slot />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});

@@ -1,16 +1,19 @@
 import { useState } from "react";
 import { View, Text, StyleSheet, Alert, Platform } from "react-native";
+import { useRouter } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { signInWithApple } from "../services/appleAuth";
 import { Colors } from "../constants/Colors";
 
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleAppleSignIn = async () => {
     try {
       setLoading(true);
       await signInWithApple();
+      router.replace("/(auth)/(tabs)");
     } catch (error: any) {
       if (error.code === "ERR_REQUEST_CANCELED") return;
       Alert.alert("Error", error.message ?? "No se pudo iniciar sesión");

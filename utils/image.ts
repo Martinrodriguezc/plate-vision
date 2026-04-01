@@ -1,23 +1,39 @@
 import * as ImageManipulator from "expo-image-manipulator";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 
-const MAX_SIZE_BYTES = 1 * 1024 * 1024; // 1MB
+const MAX_BASE64_LENGTH = 500_000; // ~375KB imagen real
 
 export async function compressImage(uri: string): Promise<string> {
-  let quality = 0.8;
+  // Primera pasada: resize a 1024px ancho
   let result = await ImageManipulator.manipulateAsync(
     uri,
-    [{ resize: { width: 1280 } }],
-    { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
+    [{ resize: { width: 1024 } }],
+    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
   );
 
-  // Reducir calidad si supera 1MB
-  const info = await FileSystem.getInfoAsync(result.uri);
-  if (info.exists && info.size && info.size > MAX_SIZE_BYTES) {
+  // Verificar tamaño del base64
+  let base64 = await FileSystem.readAsStringAsync(result.uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  // Si sigue muy grande, comprimir mas
+  if (base64.length > MAX_BASE64_LENGTH) {
     result = await ImageManipulator.manipulateAsync(
       uri,
-      [{ resize: { width: 1024 } }],
-      { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+      [{ resize: { width: 768 } }],
+      { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    base64 = await FileSystem.readAsStringAsync(result.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+  }
+
+  // Ultimo recurso
+  if (base64.length > MAX_BASE64_LENGTH) {
+    result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 512 } }],
+      { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG }
     );
   }
 

@@ -73,37 +73,36 @@ export default function CameraScreen() {
         style={styles.camera}
         facing="back"
         flash={flash ? "on" : "off"}
-      >
-        {/* Overlay guide */}
-        <View style={styles.overlay}>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backText}>✕</Text>
+      />
+      {/* Overlay guide - absolute positioned over camera */}
+      <View style={styles.overlay}>
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backText}>✕</Text>
+        </Pressable>
+
+        <View style={styles.guide}>
+          <View style={styles.guideLine} />
+          <Text style={styles.guideText}>Alinea la barra aquí</Text>
+          <View style={styles.guideLine} />
+        </View>
+
+        <View style={styles.controls}>
+          <Pressable style={styles.controlButton} onPress={handleGallery}>
+            <Text style={styles.controlEmoji}>🖼️</Text>
           </Pressable>
 
-          <View style={styles.guide}>
-            <View style={styles.guideLine} />
-            <Text style={styles.guideText}>Alinea la barra aquí</Text>
-            <View style={styles.guideLine} />
-          </View>
+          <Pressable style={styles.captureButton} onPress={takePicture}>
+            <View style={styles.captureInner} />
+          </Pressable>
 
-          <View style={styles.controls}>
-            <Pressable style={styles.controlButton} onPress={handleGallery}>
-              <Text style={styles.controlEmoji}>🖼️</Text>
-            </Pressable>
-
-            <Pressable style={styles.captureButton} onPress={takePicture}>
-              <View style={styles.captureInner} />
-            </Pressable>
-
-            <Pressable
-              style={styles.controlButton}
-              onPress={() => setFlash(!flash)}
-            >
-              <Text style={styles.controlEmoji}>{flash ? "⚡" : "💡"}</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            style={styles.controlButton}
+            onPress={() => setFlash(!flash)}
+          >
+            <Text style={styles.controlEmoji}>{flash ? "⚡" : "💡"}</Text>
+          </Pressable>
         </View>
-      </CameraView>
+      </View>
     </View>
   );
 }
@@ -117,7 +116,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "space-between",
     padding: 24,
     paddingTop: 60,
