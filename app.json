@@ -1,30 +1,58 @@
 {
   "expo": {
-    "name": "plate-vision",
+    "name": "Plate Vision",
     "slug": "plate-vision",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "scheme": "platevision",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1a1a2e"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.platevision.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Plate Vision necesita acceso a tu camara para fotografiar la barra de pesas y reconocer los discos automaticamente.",
+        "NSPhotoLibraryUsageDescription": "Plate Vision necesita acceso a tu galeria para seleccionar fotos de barras de pesas."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1a1a2e"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "package": "com.platevision.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Plate Vision necesita acceso a tu camara para fotografiar la barra de pesas."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Plate Vision necesita acceso a tu galeria para seleccionar fotos de barras de pesas."
+        }
+      ]
+    ],
+    "extra": {
+      "supabaseUrl": "",
+      "supabaseAnonKey": "",
+      "eas": {
+        "projectId": ""
+      }
     }
   }
 }
