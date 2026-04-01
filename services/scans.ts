@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import { Scan, ScanResult } from "../types/scan";
 import * as FileSystem from "expo-file-system/legacy";
-import { decode } from "base-64";
+import * as Crypto from "expo-crypto";
 
 export async function saveScan(
   imageUri: string,
@@ -15,7 +15,7 @@ export async function saveScan(
     } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "No hay sesión activa" };
 
-    const scanId = crypto.randomUUID();
+    const scanId = Crypto.randomUUID();
     const imagePath = `${user.id}/${scanId}.jpg`;
 
     // Subir imagen a Storage

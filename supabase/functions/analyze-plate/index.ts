@@ -139,7 +139,13 @@ Deno.serve(async (req) => {
               },
               {
                 type: "text",
-                text: `Analiza esta foto de una barra de pesas. Devuelve el resultado en ${unit}. Responde SOLO con JSON válido.`,
+                text: `Analiza esta foto de una barra de pesas. Devuelve el resultado en ${unit}.
+
+IMPORTANTE: Mira con mucho cuidado el perfil lateral de los discos apilados. Cada franja de color distinta es un disco separado. Los discos bumper olímpicos suelen apilarse rojo(25)+amarillo(15)+verde(10) o combinaciones similares. NO te saltes ningún disco del medio.
+
+Si solo puedes ver un lado de la barra, asume que el otro lado tiene exactamente los mismos discos.
+
+Responde SOLO con JSON válido.`,
               },
             ],
           },
