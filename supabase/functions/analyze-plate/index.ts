@@ -3,66 +3,77 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 
-const SYSTEM_PROMPT = `Eres un experto en equipamiento de gimnasio y halterofilia. Tu tarea es analizar fotos de barras de pesas y reconocer TODOS los discos cargados con máxima precisión.
+const SYSTEM_PROMPT = `Eres un analizador experto de barras de pesas en gimnasios. Tu trabajo es mirar una foto e identificar CADA disco cargado en la barra.
 
-PROCESO DE ANÁLISIS (sigue estos pasos en orden):
+Tu respuesta debe tener DOS partes obligatorias:
 
-PASO 1 — IDENTIFICAR LA BARRA:
-- Olímpica estándar = 20kg (la más común, diámetro grueso en extremos)
-- Olímpica mujer = 15kg (más delgada y corta)
-- Estándar = 10-15kg (diámetro uniforme)
-- EZ curl = 8-10kg
+PARTE 1 — RAZONAMIENTO (dentro de "reasoning")
+Describe EN DETALLE lo que ves, disco por disco. Esto es CRÍTICO para no saltarte ninguno.
 
-PASO 2 — CONTAR DISCOS CON CUIDADO:
-- Examina cada lado de la barra por separado
-- Los discos están APILADOS uno contra otro. Mira los BORDES visibles entre discos
-- Cada franja de color diferente que veas en el perfil de los discos apilados es un disco distinto
-- ERRORES COMUNES: cuando hay 3+ discos apilados, es fácil saltarse el del medio. Cuenta las franjas de color una por una
-- Si solo ves un lado, asume que el otro lado tiene la misma carga (es lo estándar)
-- Mira también discos pequeños (change plates) que pueden estar ocultos detrás de los grandes
+PARTE 2 — RESULTADO (el JSON final)
 
-PASO 3 — IDENTIFICAR PESO POR COLOR (estándar IWF/olímpico):
-Discos grandes (bumper plates, diámetro 450mm):
-- Rojo = 25kg
-- Azul = 20kg
-- Amarillo = 15kg
-- Verde = 10kg
+---
 
-Discos medianos y pequeños:
-- Blanco = 5kg
-- Negro = 2.5kg
-- Rojo pequeño = 2.5kg
-- Azul pequeño = 2kg
-- Amarillo pequeño = 1.5kg
-- Verde pequeño = 1kg
-- Blanco pequeño = 0.5kg
+CÓMO IDENTIFICAR DISCOS:
 
-Discos comerciales/gym: lee el número impreso.
-Discos en libras: 45lb, 35lb, 25lb, 10lb, 5lb, 2.5lb.
+TIPO A — DISCOS OLÍMPICOS/BUMPER (mismo diámetro, se diferencian POR COLOR):
+Todos tienen el mismo diámetro grande (~450mm). El ÚNICO diferenciador es el color.
+- Rojo = 25kg / 55lb
+- Azul = 20kg / 45lb
+- Amarillo = 15kg / 35lb
+- Verde = 10kg / 25lb
+- Blanco = 5kg / 10lb
+Cuando están apilados de perfil, verás franjas de colores. CADA franja = 1 disco.
 
-PASO 4 — VERIFICAR EL CÁLCULO:
-- Suma lado izquierdo disco por disco
-- Suma lado derecho disco por disco
-- Total = barra + izquierdo + derecho
-- VERIFICA que la suma sea correcta antes de responder
+TIPO B — DISCOS DE HIERRO/COMERCIALES (mismo color, se diferencian POR TAMAÑO):
+Todos son negros o grises. El diferenciador es el DIÁMETRO y GROSOR.
+- El más grande y grueso = 20kg / 45lb
+- Grande = 15kg / 35lb
+- Mediano = 10kg / 25lb
+- Mediano-chico = 5kg / 10lb
+- Chico = 2.5kg / 5lb
+- Muy chico = 1.25kg / 2.5lb
+Si tienen un NÚMERO IMPRESO, usa ese número como peso.
 
-RESPONDE ÚNICAMENTE con JSON válido en este formato exacto, sin texto adicional:
+TIPO C — MEZCLA
+Algunos gyms mezclan bumper plates de colores con discos de hierro negros. Identifica cada uno por separado.
+
+---
+
+CÓMO CONTAR DISCOS APILADOS:
+1. Mira UN lado de la barra
+2. Desde el EXTERIOR hacia la barra, enumera cada disco que veas
+3. Busca cambios de color, cambios de diámetro, líneas de separación entre discos, o bordes visibles
+4. Si ves 3 franjas de color (ej: rojo-amarillo-verde), son 3 DISCOS, no 2
+5. Si solo ves un lado, ASUME el otro lado igual
+
+---
+
+BARRAS:
+- Olímpica masculina: 20kg (la más común, extremos gruesos)
+- Olímpica femenina: 15kg (más delgada)
+- Estándar: 10kg (diámetro uniforme, más corta)
+- EZ curl: 8-10kg
+
+---
+
+FORMATO DE RESPUESTA (JSON válido, nada más):
+
 {
-  "bar": {"type": "descripción de la barra", "weight": number},
+  "reasoning": "Describo lo que veo: [barra tipo X]. Lado izquierdo desde afuera: disco 1 [color/tamaño], disco 2 [color/tamaño], disco 3... Lado derecho: [igual o lo que veo]. Total lado izq: Xkg. Total lado der: Xkg.",
+  "bar": {"type": "descripción", "weight": number},
   "discs": [
-    {"color": "color del disco", "weight": number, "quantity": number, "side": "left|right|both"}
+    {"color": "color o descripción", "weight": number, "quantity": number, "side": "left|right|both"}
   ],
   "totalWeight": number,
-  "confidence": number entre 0 y 100,
+  "confidence": number 0-100,
   "unit": "kg" o "lbs",
-  "notes": "observaciones relevantes o string vacío"
+  "notes": ""
 }
 
-Si la imagen no muestra una barra de pesas:
-{"error": "no_barbell", "message": "No se detectó una barra de pesas en la imagen", "confidence": 0}
-
-Si la imagen es muy borrosa o los discos no se distinguen:
-{"error": "low_quality", "message": "La imagen no tiene suficiente calidad para un análisis preciso", "confidence": 0}`;
+ERRORES:
+- No es barra de pesas: {"error": "no_barbell", "message": "No se detectó una barra de pesas en la imagen", "confidence": 0}
+- Imagen borrosa: {"error": "low_quality", "message": "La imagen no tiene suficiente calidad", "confidence": 0}`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -123,7 +134,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 1024,
+        max_tokens: 2048,
         system: SYSTEM_PROMPT,
         messages: [
           {
@@ -139,11 +150,11 @@ Deno.serve(async (req) => {
               },
               {
                 type: "text",
-                text: `Analiza esta foto de una barra de pesas. Devuelve el resultado en ${unit}.
+                text: `Analiza esta barra de pesas. Resultado en ${unit}.
 
-IMPORTANTE: Mira con mucho cuidado el perfil lateral de los discos apilados. Cada franja de color distinta es un disco separado. Los discos bumper olímpicos suelen apilarse rojo(25)+amarillo(15)+verde(10) o combinaciones similares. NO te saltes ningún disco del medio.
+ANTES de dar el JSON, en el campo "reasoning" describe lo que ves disco por disco, de afuera hacia adentro. Enuméralos: "disco 1: [color/tamaño] = Xkg, disco 2: ...". Esto te ayuda a no saltarte ninguno.
 
-Si solo puedes ver un lado de la barra, asume que el otro lado tiene exactamente los mismos discos.
+RECUERDA: Los discos pueden ser TODOS del mismo color (negro/gris) y diferenciarse solo por tamaño. No todos los gimnasios usan colores olímpicos.
 
 Responde SOLO con JSON válido.`,
               },

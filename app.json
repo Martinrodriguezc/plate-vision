@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.platevision.app",
       "infoPlist": {
         "NSCameraUsageDescription": "Plate Vision necesita acceso a tu camara para fotografiar la barra de pesas y reconocer los discos automaticamente.",
-        "NSPhotoLibraryUsageDescription": "Plate Vision necesita acceso a tu galeria para seleccionar fotos de barras de pesas."
+        "NSPhotoLibraryUsageDescription": "Plate Vision necesita acceso a tu galeria para seleccionar fotos de barras de pesas.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -26,7 +27,11 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
       },
-      "package": "com.platevision.app"
+      "package": "com.platevision.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -52,8 +57,10 @@
       "supabaseUrl": "https://qahcudubscmpizvosoio.supabase.co",
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhaGN1ZHVic2NtcGl6dm9zb2lvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNTcxMzksImV4cCI6MjA5MDYzMzEzOX0.eNbFf3THmrDZ5Av05nNm8Kt3b8101n4GGaNVSaxGe7A",
       "eas": {
-        "projectId": ""
-      }
-    }
+        "projectId": "aa899fae-3caa-4574-bfc4-ada2fb4cb8b6"
+      },
+      "router": {}
+    },
+    "owner": "martinrodriguezc"
   }
 }
