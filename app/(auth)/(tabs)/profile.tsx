@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
+import { View, Text, StyleSheet, Alert } from "react-native";
 import { useAuth } from "../../../hooks/useAuth";
 import { supabase } from "../../../services/supabase";
 import { Colors } from "../../../constants/Colors";
+import { Typography } from "../../../constants/Typography";
+import { Layout } from "../../../constants/Layout";
+import { GoldCard } from "../../../components/ui/GoldCard";
+import { Button } from "../../../components/ui/Button";
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -28,7 +32,7 @@ export default function ProfileScreen() {
   };
 
   const email = user?.email ?? "Email oculto (Apple)";
-  const name = displayName ?? "Usuario Apple";
+  const name = displayName ?? "Usuario";
 
   return (
     <View style={styles.container}>
@@ -37,22 +41,21 @@ export default function ProfileScreen() {
           {name.charAt(0).toUpperCase()}
         </Text>
       </View>
-      <Text style={styles.name}>{name}</Text>
+      <Text style={styles.name}>{name.toUpperCase()}</Text>
       <Text style={styles.email}>{email}</Text>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Mi suscripción</Text>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Plan Gratuito</Text>
-          <Text style={styles.cardSubtitle}>
-            3 escaneos gratis por día
-          </Text>
-        </View>
+        <Text style={styles.sectionLabel}>SUSCRIPCIÓN</Text>
+        <View style={styles.labelUnderline} />
+        <GoldCard accentBorder style={styles.card}>
+          <Text style={styles.planTitle}>PLAN GRATUITO</Text>
+          <Text style={styles.planSubtitle}>3 escaneos gratis por día</Text>
+        </GoldCard>
       </View>
 
-      <Pressable style={styles.signOutButton} onPress={handleSignOut}>
-        <Text style={styles.signOutText}>Cerrar sesión</Text>
-      </Pressable>
+      <View style={styles.signOutContainer}>
+        <Button title="CERRAR SESIÓN" onPress={handleSignOut} variant="danger" />
+      </View>
     </View>
   );
 }
@@ -62,75 +65,63 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
     alignItems: "center",
-    padding: 24,
+    padding: Layout.spacing.lg,
     paddingTop: 32,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.primary,
+    width: 72,
+    height: 72,
+    borderRadius: Layout.borderRadius.card,
+    backgroundColor: Colors.accent,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: Layout.spacing.md,
   },
   avatarText: {
     fontSize: 32,
-    fontWeight: "bold",
-    color: "#fff",
+    fontWeight: "900",
+    color: Colors.background,
   },
   name: {
+    ...Typography.heading,
     fontSize: 22,
-    fontWeight: "bold",
-    color: Colors.text,
     marginBottom: 4,
   },
   email: {
-    fontSize: 14,
-    color: Colors.textSecondary,
+    ...Typography.caption,
     marginBottom: 32,
   },
   section: {
     width: "100%",
     marginBottom: 32,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: Colors.textSecondary,
-    marginBottom: 12,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+  sectionLabel: {
+    ...Typography.sectionLabel,
+    marginBottom: Layout.spacing.xs,
+  },
+  labelUnderline: {
+    width: Layout.goldUnderline.width,
+    height: Layout.goldUnderline.height,
+    backgroundColor: Colors.accent,
+    marginBottom: Layout.spacing.md,
   },
   card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    marginTop: 0,
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+  planTitle: {
+    fontSize: 16,
+    fontWeight: "800",
     color: Colors.text,
+    letterSpacing: 1,
+    textTransform: "uppercase",
     marginBottom: 4,
   },
-  cardSubtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
+  planSubtitle: {
+    ...Typography.body,
   },
-  signOutButton: {
+  signOutContainer: {
     marginTop: "auto",
     marginBottom: 32,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.error,
-  },
-  signOutText: {
-    color: Colors.error,
-    fontSize: 16,
-    fontWeight: "600",
+    width: "100%",
   },
 });

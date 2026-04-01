@@ -4,6 +4,17 @@ import { useRouter } from "expo-router";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { signInWithApple } from "../services/appleAuth";
 import { Colors } from "../constants/Colors";
+import { Typography } from "../constants/Typography";
+import { Layout } from "../constants/Layout";
+
+function FeatureRow({ text }: { text: string }) {
+  return (
+    <View style={styles.featureRow}>
+      <View style={styles.featureBullet} />
+      <Text style={styles.featureText}>{text}</Text>
+    </View>
+  );
+}
 
 export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
@@ -25,35 +36,32 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.emoji}>🏋️</Text>
-        <Text style={styles.title}>Plate Vision</Text>
+        <Text style={styles.title}>PLATE</Text>
+        <Text style={styles.titleAccent}>VISION</Text>
+        <View style={styles.titleUnderline} />
         <Text style={styles.subtitle}>
-          Fotografía tu barra y calcula el peso al instante con IA
+          Fotografía tu barra y calcula{"\n"}el peso al instante con IA
         </Text>
       </View>
 
       <View style={styles.features}>
-        <Text style={styles.feature}>📸 Escanea discos con la cámara</Text>
-        <Text style={styles.feature}>🤖 IA reconoce peso automáticamente</Text>
-        <Text style={styles.feature}>📊 Historial de todos tus escaneos</Text>
+        <FeatureRow text="Escanea discos con la cámara" />
+        <FeatureRow text="IA reconoce peso automáticamente" />
+        <FeatureRow text="Historial de todos tus escaneos" />
       </View>
 
       <View style={styles.footer}>
         {Platform.OS === "ios" ? (
           <AppleAuthentication.AppleAuthenticationButton
-            buttonType={
-              AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
-            }
-            buttonStyle={
-              AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-            }
-            cornerRadius={12}
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+            cornerRadius={Layout.borderRadius.sharp}
             style={styles.appleButton}
             onPress={handleAppleSignIn}
           />
         ) : (
           <Text style={styles.platformNote}>
-            Sign in with Apple solo disponible en iOS
+            Solo disponible en iOS
           </Text>
         )}
       </View>
@@ -65,39 +73,59 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    padding: 24,
+    padding: Layout.spacing.lg,
     justifyContent: "space-between",
   },
   header: {
     alignItems: "center",
-    marginTop: 80,
-  },
-  emoji: {
-    fontSize: 72,
-    marginBottom: 16,
+    marginTop: 100,
   },
   title: {
-    fontSize: 36,
-    fontWeight: "bold",
+    fontSize: 48,
+    fontWeight: "900",
     color: Colors.text,
-    marginBottom: 8,
+    letterSpacing: 8,
+  },
+  titleAccent: {
+    fontSize: 48,
+    fontWeight: "900",
+    color: Colors.accent,
+    letterSpacing: 8,
+    marginTop: -8,
+  },
+  titleUnderline: {
+    width: 48,
+    height: 3,
+    backgroundColor: Colors.accent,
+    marginTop: 16,
+    marginBottom: 24,
   },
   subtitle: {
-    fontSize: 16,
-    color: Colors.textSecondary,
+    ...Typography.body,
     textAlign: "center",
     lineHeight: 24,
   },
   features: {
     gap: 16,
+    paddingHorizontal: Layout.spacing.lg,
   },
-  feature: {
-    fontSize: 18,
+  featureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  featureBullet: {
+    width: 8,
+    height: 8,
+    backgroundColor: Colors.accent,
+  },
+  featureText: {
+    ...Typography.body,
     color: Colors.text,
-    textAlign: "center",
+    fontSize: 16,
   },
   footer: {
-    marginBottom: 48,
+    marginBottom: Layout.spacing.xxl,
     alignItems: "center",
   },
   appleButton: {
@@ -105,7 +133,6 @@ const styles = StyleSheet.create({
     height: 56,
   },
   platformNote: {
-    color: Colors.textSecondary,
-    fontSize: 14,
+    ...Typography.caption,
   },
 });

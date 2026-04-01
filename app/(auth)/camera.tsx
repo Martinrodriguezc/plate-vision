@@ -4,6 +4,10 @@ import { CameraView } from "expo-camera";
 import { useRouter } from "expo-router";
 import { useCamera } from "../../hooks/useCamera";
 import { Colors } from "../../constants/Colors";
+import { Typography } from "../../constants/Typography";
+import { Layout } from "../../constants/Layout";
+import { Button } from "../../components/ui/Button";
+import { EmptyState } from "../../components/ui/EmptyState";
 
 export default function CameraScreen() {
   const router = useRouter();
@@ -12,41 +16,29 @@ export default function CameraScreen() {
     useCamera();
   const [flash, setFlash] = useState(false);
 
-  // Solicitar permiso al montar
   if (permission === "undetermined") {
     return (
-      <View style={styles.center}>
-        <Text style={styles.emoji}>📸</Text>
-        <Text style={styles.title}>Acceso a cámara</Text>
-        <Text style={styles.subtitle}>
-          Necesitamos tu cámara para fotografiar la barra de pesas
-        </Text>
-        <Pressable style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Permitir cámara</Text>
-        </Pressable>
-      </View>
+      <EmptyState
+        title="ACCESO A CÁMARA"
+        subtitle="Necesitamos tu cámara para fotografiar la barra de pesas"
+        actionLabel="PERMITIR CÁMARA"
+        onAction={requestPermission}
+      />
     );
   }
 
-  // Permiso denegado
   if (permission === "denied") {
     return (
-      <View style={styles.center}>
-        <Text style={styles.emoji}>🔒</Text>
-        <Text style={styles.title}>Cámara no disponible</Text>
-        <Text style={styles.subtitle}>
-          Habilita el acceso a la cámara desde Configuración para usar Plate
-          Vision
-        </Text>
-        <Pressable style={styles.button} onPress={openSettings}>
-          <Text style={styles.buttonText}>Abrir Configuración</Text>
-        </Pressable>
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.secondaryText}>Volver</Text>
-        </Pressable>
+      <View style={styles.permissionContainer}>
+        <EmptyState
+          title="CÁMARA NO DISPONIBLE"
+          subtitle="Habilita el acceso a la cámara desde Configuración"
+          actionLabel="ABRIR CONFIGURACIÓN"
+          onAction={openSettings}
+        />
+        <View style={styles.backContainer}>
+          <Button title="VOLVER" onPress={() => router.back()} variant="secondary" />
+        </View>
       </View>
     );
   }
@@ -74,32 +66,50 @@ export default function CameraScreen() {
         facing="back"
         flash={flash ? "on" : "off"}
       />
-      {/* Overlay guide - absolute positioned over camera */}
+
       <View style={styles.overlay}>
+        {/* Back */}
         <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backText}>✕</Text>
+          <View style={styles.xLine1} />
+          <View style={styles.xLine2} />
         </Pressable>
 
+        {/* Guide */}
         <View style={styles.guide}>
           <View style={styles.guideLine} />
-          <Text style={styles.guideText}>Alinea la barra aquí</Text>
+          <Text style={styles.guideText}>ALINEA LA BARRA</Text>
           <View style={styles.guideLine} />
         </View>
 
+        {/* Controls */}
         <View style={styles.controls}>
+          {/* Gallery */}
           <Pressable style={styles.controlButton} onPress={handleGallery}>
-            <Text style={styles.controlEmoji}>🖼️</Text>
+            <View style={styles.gridContainer}>
+              <View style={[styles.gridDot, { top: 0, left: 0 }]} />
+              <View style={[styles.gridDot, { top: 0, right: 0 }]} />
+              <View style={[styles.gridDot, { bottom: 0, left: 0 }]} />
+              <View style={[styles.gridDot, { bottom: 0, right: 0 }]} />
+            </View>
           </Pressable>
 
-          <Pressable style={styles.captureButton} onPress={takePicture}>
+          {/* Capture */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.captureButton,
+              pressed && styles.capturePressed,
+            ]}
+            onPress={takePicture}
+          >
             <View style={styles.captureInner} />
           </Pressable>
 
+          {/* Flash */}
           <Pressable
-            style={styles.controlButton}
+            style={[styles.controlButton, flash && styles.controlActive]}
             onPress={() => setFlash(!flash)}
           >
-            <Text style={styles.controlEmoji}>{flash ? "⚡" : "💡"}</Text>
+            <View style={styles.diamond} />
           </Pressable>
         </View>
       </View>
@@ -108,46 +118,51 @@ export default function CameraScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  camera: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: "#000" },
+  camera: { flex: 1 },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "space-between",
-    padding: 24,
+    padding: Layout.spacing.lg,
     paddingTop: 60,
     paddingBottom: 40,
   },
+  permissionContainer: { flex: 1, backgroundColor: Colors.background },
+  backContainer: { padding: Layout.spacing.lg, paddingBottom: Layout.spacing.xxl },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: Layout.borderRadius.card,
+    borderWidth: 1,
+    borderColor: Colors.accent,
     alignItems: "center",
     justifyContent: "center",
   },
-  backText: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  guide: {
-    alignItems: "center",
-    gap: 8,
-  },
-  guideLine: {
-    width: "80%",
+  xLine1: {
+    position: "absolute",
+    width: 16,
     height: 2,
-    backgroundColor: "rgba(108,99,255,0.6)",
-    borderRadius: 1,
+    backgroundColor: Colors.accent,
+    transform: [{ rotate: "45deg" }],
+  },
+  xLine2: {
+    position: "absolute",
+    width: 16,
+    height: 2,
+    backgroundColor: Colors.accent,
+    transform: [{ rotate: "-45deg" }],
+  },
+  guide: { alignItems: "center", gap: 8 },
+  guideLine: {
+    width: "75%",
+    height: 1,
+    backgroundColor: Colors.accent,
+    opacity: 0.5,
   },
   guideText: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 14,
+    ...Typography.sectionLabel,
+    color: "rgba(200,168,78,0.7)",
+    fontSize: 11,
   },
   controls: {
     flexDirection: "row",
@@ -155,73 +170,47 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
   },
   controlButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 52,
+    height: 52,
+    borderRadius: Layout.borderRadius.card,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
-  controlEmoji: {
-    fontSize: 24,
+  controlActive: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.accentMuted,
+  },
+  gridContainer: { width: 16, height: 16 },
+  gridDot: {
+    position: "absolute",
+    width: 5,
+    height: 5,
+    backgroundColor: "rgba(255,255,255,0.8)",
+  },
+  diamond: {
+    width: 10,
+    height: 10,
+    backgroundColor: "rgba(255,255,255,0.8)",
+    transform: [{ rotate: "45deg" }],
   },
   captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 4,
-    borderColor: "#fff",
+    width: 76,
+    height: 76,
+    borderRadius: Layout.borderRadius.card,
+    borderWidth: 3,
+    borderColor: Colors.accent,
     alignItems: "center",
     justifyContent: "center",
+  },
+  capturePressed: {
+    transform: [{ scale: 0.93 }],
   },
   captureInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#fff",
-  },
-  // Permission screens
-  center: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  emoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    marginBottom: 32,
-    lineHeight: 24,
-  },
-  button: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  secondaryButton: {
-    paddingVertical: 12,
-  },
-  secondaryText: {
-    color: Colors.textSecondary,
-    fontSize: 16,
+    width: 60,
+    height: 60,
+    borderRadius: Layout.borderRadius.sharp,
+    backgroundColor: Colors.accent,
   },
 });

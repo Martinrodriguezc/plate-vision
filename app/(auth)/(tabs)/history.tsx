@@ -13,6 +13,9 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Scan } from "../../../types/scan";
 import { getScans, getScanImageUrl } from "../../../services/scans";
 import { Colors } from "../../../constants/Colors";
+import { Typography } from "../../../constants/Typography";
+import { Layout } from "../../../constants/Layout";
+import { EmptyState } from "../../../components/ui/EmptyState";
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -25,13 +28,7 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function ScanItem({
-  scan,
-  onPress,
-}: {
-  scan: Scan;
-  onPress: () => void;
-}) {
+function ScanItem({ scan, onPress }: { scan: Scan; onPress: () => void }) {
   const [imageUrl, setImageUrl] = useState<string>("");
 
   useEffect(() => {
@@ -40,20 +37,23 @@ function ScanItem({
 
   return (
     <Pressable style={styles.scanItem} onPress={onPress}>
+      <View style={styles.accentLine} />
       {imageUrl ? (
         <Image source={{ uri: imageUrl }} style={styles.thumbnail} />
       ) : (
-        <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-          <Text style={styles.thumbnailEmoji}>🏋️</Text>
-        </View>
+        <View style={[styles.thumbnail, styles.thumbnailPlaceholder]} />
       )}
       <View style={styles.scanInfo}>
         <Text style={styles.scanWeight}>
-          {scan.total_weight} {scan.unit}
+          {scan.total_weight}
+          <Text style={styles.scanUnit}> {scan.unit}</Text>
         </Text>
         <Text style={styles.scanDate}>{formatDate(scan.created_at)}</Text>
       </View>
-      <Text style={styles.chevron}>›</Text>
+      <View style={styles.chevron}>
+        <View style={styles.chevronLine1} />
+        <View style={styles.chevronLine2} />
+      </View>
     </Pressable>
   );
 }
@@ -67,47 +67,34 @@ export default function HistoryScreen() {
   const loadScans = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
-
     try {
       const { data } = await getScans();
       setScans(data);
-    } catch {
-      // silently fail
-    } finally {
+    } catch {}
+    finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      loadScans();
-    }, [])
-  );
+  useFocusEffect(useCallback(() => { loadScans(); }, []));
 
   if (loading && scans.length === 0) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={Colors.accent} />
       </View>
     );
   }
 
   if (scans.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.emoji}>📋</Text>
-        <Text style={styles.title}>Sin escaneos aún</Text>
-        <Text style={styles.subtitle}>
-          Escanea tu primera barra y aparecerá aquí
-        </Text>
-        <Pressable
-          style={styles.button}
-          onPress={() => router.push("/(auth)/camera")}
-        >
-          <Text style={styles.buttonText}>📸  Escanear ahora</Text>
-        </Pressable>
-      </View>
+      <EmptyState
+        title="SIN ESCANEOS"
+        subtitle="Escanea tu primera barra y aparecerá aquí"
+        actionLabel="INICIAR ESCANEO"
+        onAction={() => router.push("/(auth)/camera")}
+      />
     );
   }
 
@@ -121,7 +108,7 @@ export default function HistoryScreen() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={() => loadScans(true)}
-          tintColor={Colors.primary}
+          tintColor={Colors.accent}
         />
       }
       renderItem={({ item }) => (
@@ -140,88 +127,73 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  list: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  listContent: {
-    padding: 16,
-    gap: 8,
-  },
+  list: { flex: 1, backgroundColor: Colors.background },
+  listContent: { padding: Layout.spacing.md, gap: 6 },
   scanItem: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: Layout.borderRadius.card,
     borderWidth: 1,
     borderColor: Colors.border,
+    overflow: "hidden",
+  },
+  accentLine: {
+    width: Layout.accentLineWidth,
+    alignSelf: "stretch",
+    backgroundColor: Colors.accent,
   },
   thumbnail: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
+    width: 52,
+    height: 52,
+    borderRadius: Layout.borderRadius.sharp,
+    marginLeft: 12,
+    marginVertical: 12,
   },
   thumbnailPlaceholder: {
     backgroundColor: Colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  thumbnailEmoji: {
-    fontSize: 24,
   },
   scanInfo: {
     flex: 1,
     marginLeft: 12,
   },
   scanWeight: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "800",
     color: Colors.text,
   },
-  scanDate: {
-    fontSize: 13,
+  scanUnit: {
+    fontSize: 14,
+    fontWeight: "400",
     color: Colors.textSecondary,
+  },
+  scanDate: {
+    ...Typography.caption,
     marginTop: 2,
   },
   chevron: {
-    fontSize: 24,
-    color: Colors.textSecondary,
-    paddingLeft: 8,
+    width: 20,
+    height: 20,
+    marginRight: 16,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  // Empty state
+  chevronLine1: {
+    width: 8,
+    height: 2,
+    backgroundColor: Colors.textMuted,
+    transform: [{ rotate: "45deg" }, { translateY: -2 }],
+  },
+  chevronLine2: {
+    width: 8,
+    height: 2,
+    backgroundColor: Colors.textMuted,
+    transform: [{ rotate: "-45deg" }, { translateY: 2 }],
+  },
   center: {
     flex: 1,
     backgroundColor: Colors.background,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
-  },
-  emoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    textAlign: "center",
-    marginBottom: 32,
-  },
-  button: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
   },
 });
