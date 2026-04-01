@@ -1,16 +1,23 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import { Colors } from "../../../constants/Colors";
 
-export default function ScanScreen() {
+export default function HomeScreen() {
+  const router = useRouter();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.emoji}>📸</Text>
-      <Text style={styles.title}>Escanear barra</Text>
+      <Text style={styles.emoji}>🏋️</Text>
+      <Text style={styles.title}>Plate Vision</Text>
       <Text style={styles.subtitle}>
         Toma una foto de tu barra de pesas para calcular el peso total
       </Text>
-      <Pressable style={styles.button}>
-        <Text style={styles.buttonText}>Abrir cámara</Text>
+
+      <Pressable
+        style={styles.button}
+        onPress={() => router.push("/(auth)/camera")}
+      >
+        <Text style={styles.buttonText}>📸  Escanear barra</Text>
       </Pressable>
     </View>
   );
@@ -25,11 +32,11 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emoji: {
-    fontSize: 64,
+    fontSize: 72,
     marginBottom: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
     color: Colors.text,
     marginBottom: 8,
@@ -38,17 +45,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textSecondary,
     textAlign: "center",
-    marginBottom: 32,
+    marginBottom: 40,
+    lineHeight: 24,
   },
   button: {
     backgroundColor: Colors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
+    paddingVertical: 18,
+    paddingHorizontal: 40,
+    borderRadius: 16,
   },
   buttonText: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 20,
+    fontWeight: "700",
   },
 });
