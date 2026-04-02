@@ -4,51 +4,87 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 
 // ============================================================
-// PROMPT OPTIMIZADO — Cambios clave vs tu versión anterior:
+// PROMPT v3 — Fixes específicos:
 //
-// 1. TÉCNICA "DESCRIBE PRIMERO, CLASIFICA DESPUÉS"
-//    El modelo primero narra lo que ve en lenguaje natural
-//    (colores, grosores, franjas) y DESPUÉS mapea a pesos.
-//    Esto reduce errores de clasificación ~40%.
+// FIX 1: SIMETRÍA FORZADA
+//   Antes: "si no se ve bien, asume simétrico" (condicional)
+//   Ahora: "SIEMPRE analiza UN solo lado y duplica. NUNCA
+//           analices ambos lados por separado."
+//   Razón: en gym real el 99% de las veces es simétrico,
+//   y cuando el modelo intenta ver ambos lados, alucina
+//   en el lado tapado por el rack.
 //
-// 2. RAZONAMIENTO UNIFICADO
-//    Un solo flujo de 5 pasos (antes había conflicto entre
-//    los 4 pasos del proceso y los 6 del JSON reasoning).
+// FIX 2: DISCOS CHICOS — HONESTIDAD SOBRE INCERTIDUMBRE
+//   Antes: el modelo o los ignoraba o los inventaba.
+//   Ahora: paso explícito de "¿hay franjas delgadas entre
+//   los discos grandes?" + campo "possible_hidden_plates"
+//   para que la app muestre confirmación al usuario.
 //
-// 3. FEW-SHOT CON JSON COMPLETO
-//    Los examples ahora muestran el JSON exacto que esperamos,
-//    no descripciones en texto libre.
+// FIX 3: MARCAS COMERCIALES (ILUS, ROGUE, ELEIKO, etc.)
+//   Los colores de marcas comerciales NO siempre siguen
+//   el estándar olímpico. El prompt ahora prioriza:
+//   1. Número impreso en el disco (máxima prioridad)
+//   2. Diámetro relativo entre discos
+//   3. Color (solo como referencia, NO como verdad)
 //
-// 4. PROMPT MÁS CORTO Y DIRECTO
-//    Eliminadas redundancias. Menos tokens = menos confusión.
+// FIX 4: DISTRACTORES
+//   Refuerzo más agresivo de ignorar discos fuera de la barra.
 // ============================================================
 
 const SYSTEM_PROMPT = `Eres un sistema de visión para identificar discos en barras de gimnasio.
 
-DISCOS OLÍMPICOS BUMPER (mismo diámetro 450mm, se distinguen POR COLOR):
+═══ CÓMO IDENTIFICAR DISCOS (en orden de prioridad) ═══
+
+1. NÚMERO IMPRESO en el disco → usa ese peso. Máxima prioridad.
+2. DIÁMETRO RELATIVO entre discos → el más grande = más pesado.
+3. GROSOR del disco visto de perfil → más grueso = más pesado.
+4. COLOR → solo como pista adicional, NO como verdad absoluta.
+   Muchas marcas (ILUS, Rogue, etc.) usan colores no estándar.
+
+Referencia de colores SOLO para discos olímpicos IWF certificados:
 Rojo=25kg | Azul=20kg | Amarillo=15kg | Verde=10kg | Blanco=5kg
 
-DISCOS DE HIERRO (negros/grises, se distinguen POR DIÁMETRO):
-Muy grande=20kg | Grande=15kg | Mediano=10kg | Chico=5kg | Muy chico=2.5kg | Mínimo=1.25kg
-Si tienen NÚMERO IMPRESO, usa ese número.
+BARRAS: Olímpica=20kg | Femenina=15kg | Estándar=10kg | EZ=8kg
 
-BARRAS: Olímpica=20kg | Femenina=15kg | Estándar=10kg | EZ curl=8kg
+═══ REGLA DE SIMETRÍA (OBLIGATORIA) ═══
 
-REGLA CRÍTICA: SOLO cuenta discos INSERTADOS en la barra. Ignora todo disco en el piso, rack, pared o manos.
+SIEMPRE analiza UN SOLO LADO de la barra (el que mejor se vea) y DUPLICA los discos para el otro lado. NUNCA intentes analizar ambos lados por separado. En el gimnasio, la carga es simétrica el 99% de las veces, y el lado tapado por el rack te va a hacer alucinar.
 
-PROCESO (sigue estos pasos en "reasoning"):
-1. DESCRIBE lo que ves: ángulo de la foto, tipo de barra, cuántas franjas/discos se ven en cada lado
-2. LADO VISIBLE: De afuera hacia adentro, describe cada disco (color, grosor relativo, número impreso si hay)
-3. CLASIFICA: Asigna peso a cada disco según la tabla
-4. OTRO LADO: Si se ve, analízalo igual. Si no, asume simétrico
-5. SUMA: barra(X) + lado_izq(A+B+...) + lado_der(A+B+...) = total
+═══ REGLA DE DISTRACTORES (OBLIGATORIA) ═══
 
-Responde SOLO con JSON válido:
+SOLO cuenta discos que estén INSERTADOS EN LA MANGA de la barra (atravesados por ella). IGNORA TODO disco que esté:
+- En el piso (apoyado, rodando, o contra algo)
+- En racks de almacenamiento
+- Contra paredes o bancos
+- En manos de alguien
+Antes de contar un disco, pregúntate: ¿la barra lo atraviesa? Si no → ignorar.
+
+═══ PROCESO (sigue estos pasos exactos en "reasoning") ═══
+
+PASO 1 — ESCENA: Describe brevemente qué ves (tipo de rack, ángulo, qué lado se ve mejor). Menciona explícitamente cualquier disco que esté fuera de la barra para dejarlo descartado.
+
+PASO 2 — BARRA: Identifica tipo y peso.
+
+PASO 3 — LADO VISIBLE (de AFUERA hacia ADENTRO): Para cada disco describe:
+  - Qué ves: color, tamaño relativo, grosor, número impreso si hay
+  - Peso asignado y por qué
+  - Confianza
+
+PASO 4 — DISCOS CHICOS: ¿Hay franjas delgadas entre los discos grandes o en los extremos? Los discos de 1.25kg, 2.5kg y 5kg son muy delgados y fáciles de perder. Si sospechas que hay alguno pero no estás seguro, repórtalo en "possible_hidden_plates".
+
+PASO 5 — SUMA: barra(X) + 2 × (A+B+C+...) = total
+(multiplicar por 2 porque duplicas el lado visible)
+
+═══ FORMATO JSON ═══
+
 {
-  "reasoning": "1. [descripción visual]. 2. [lado visible disco por disco]. 3. [clasificación]. 4. [otro lado]. 5. [suma explícita]",
+  "reasoning": "PASO 1: ... PASO 2: ... PASO 3: ... PASO 4: ... PASO 5: ...",
   "bar": {"type": "string", "weight": number},
-  "plates": [
-    {"position": "left"|"right", "index": number, "color": "string", "weight": number, "confidence": number}
+  "plates_one_side": [
+    {"index": number, "color": "string", "weight": number, "identified_by": "number_printed"|"diameter"|"thickness"|"color", "confidence": number}
+  ],
+  "possible_hidden_plates": [
+    {"weight": number, "reason": "string"}
   ],
   "totalWeight": number,
   "confidence": number,
@@ -56,66 +92,76 @@ Responde SOLO con JSON válido:
   "notes": "string"
 }
 
-Reglas del JSON:
-- Cada disco es 1 entry en "plates" (no agrupes)
-- "index": 1=más externo, 2=siguiente hacia adentro, etc.
-- "confidence": 1.0=seguro, 0.7=probable, 0.4=adivinando
-- Si no es una barra: {"error":"no_barbell","message":"...","confidence":0}
-- Si imagen borrosa: {"error":"low_quality","message":"...","confidence":0}`;
-
-// ============================================================
-// USER MESSAGE — Más corto y enfocado.
-// El system prompt ya tiene todas las reglas; repetirlas
-// en el user message confunde al modelo.
-// ============================================================
+REGLAS DEL JSON:
+- "plates_one_side" = discos de UN solo lado (el visible). La app duplica.
+- "index": 1=más externo hacia adentro.
+- "identified_by": cómo determinaste el peso (prioridad: number_printed > diameter > thickness > color).
+- "possible_hidden_plates": discos que SOSPECHAS pero no confirmas. Puede estar vacío [].
+- "totalWeight" = bar.weight + 2 × suma(plates_one_side). NO incluyas possible_hidden_plates en el total.
+- Si no es barra: {"error":"no_barbell"}
+- Si imagen borrosa: {"error":"low_quality"}`;
 
 function buildUserMessage(unit: string): string {
   return `Analiza esta barra de pesas. Unidad: ${unit}.
 
-IMPORTANTE: Primero DESCRIBE lo que ves (colores, grosores, cuántas franjas), luego clasifica. Responde SOLO con JSON.`;
+Recuerda:
+- Analiza UN SOLO LADO (el más visible) y duplica
+- Prioriza números impresos > diámetro > grosor > color
+- Si ves franjas delgadas sospechosas, repórtalas en possible_hidden_plates
+- IGNORA todo disco que no esté insertado en la barra
+
+Responde SOLO con JSON válido.`;
 }
 
 // ============================================================
-// VALIDACIÓN POST-MODELO
-// Atrapa errores comunes del modelo y los corrige.
+// VALIDACIÓN POST-MODELO (actualizada para nuevo formato)
 // ============================================================
 
 const VALID_PLATE_WEIGHTS_KG = [0.5, 1, 1.25, 2.5, 5, 10, 15, 20, 25];
 const VALID_PLATE_WEIGHTS_LBS = [2.5, 5, 10, 15, 25, 35, 45, 55];
 
-interface Plate {
-  position: string;
+interface PlateOneSide {
   index: number;
   color: string;
   weight: number;
+  identified_by: string;
   confidence: number;
+}
+
+interface PossibleHiddenPlate {
+  weight: number;
+  reason: string;
 }
 
 interface AnalysisResult {
   reasoning?: string;
   bar?: { type: string; weight: number };
-  plates?: Plate[];
+  plates_one_side?: PlateOneSide[];
+  possible_hidden_plates?: PossibleHiddenPlate[];
   totalWeight?: number;
   confidence?: number;
   unit?: string;
   notes?: string;
   error?: string;
   message?: string;
+  // Campos transformados para la app
+  plates?: { position: string; index: number; color: string; weight: number; confidence: number }[];
   discs?: { color: string; weight: number; quantity: number; side: string }[];
   warnings?: string[];
+  needs_confirmation?: PossibleHiddenPlate[];
 }
 
 function validateAndFix(result: AnalysisResult): AnalysisResult {
   if (result.error) return result;
-  if (!result.plates || !result.bar) return result;
+  if (!result.plates_one_side || !result.bar) return result;
 
   const warnings: string[] = [];
   const unit = result.unit ?? "kg";
   const validWeights =
     unit === "lbs" ? VALID_PLATE_WEIGHTS_LBS : VALID_PLATE_WEIGHTS_KG;
 
-  // 1. Corregir pesos no estándar → redondear al más cercano
-  for (const plate of result.plates) {
+  // 1. Corregir pesos no estándar
+  for (const plate of result.plates_one_side) {
     if (!validWeights.includes(plate.weight)) {
       const closest = validWeights.reduce((prev, curr) =>
         Math.abs(curr - plate.weight) < Math.abs(prev - plate.weight)
@@ -123,34 +169,20 @@ function validateAndFix(result: AnalysisResult): AnalysisResult {
           : prev
       );
       warnings.push(
-        `Disco ${plate.position}#${plate.index}: ${plate.weight}${unit} no es estándar → corregido a ${closest}${unit}`
+        `Disco #${plate.index}: ${plate.weight}${unit} no es estándar → corregido a ${closest}${unit}`
       );
       plate.weight = closest;
       plate.confidence = Math.min(plate.confidence, 0.5);
     }
   }
 
-  // 2. Verificar simetría (avisar si es asimétrica, pero no corregir)
-  const leftPlates = result.plates
-    .filter((p) => p.position === "left")
-    .sort((a, b) => a.index - b.index)
-    .map((p) => p.weight);
-  const rightPlates = result.plates
-    .filter((p) => p.position === "right")
-    .sort((a, b) => a.index - b.index)
-    .map((p) => p.weight);
+  // 2. Recalcular peso total (simetría forzada: × 2)
+  const oneSideTotal = result.plates_one_side.reduce(
+    (s, p) => s + p.weight,
+    0
+  );
+  const correctTotal = result.bar.weight + 2 * oneSideTotal;
 
-  const leftTotal = leftPlates.reduce((s, w) => s + w, 0);
-  const rightTotal = rightPlates.reduce((s, w) => s + w, 0);
-
-  if (leftTotal !== rightTotal) {
-    warnings.push(
-      `Carga asimétrica detectada: izq=${leftTotal}${unit}, der=${rightTotal}${unit}. ¿Confirmar?`
-    );
-  }
-
-  // 3. Recalcular peso total (no confiar en el cálculo del modelo)
-  const correctTotal = result.bar.weight + leftTotal + rightTotal;
   if (result.totalWeight !== correctTotal) {
     warnings.push(
       `Total corregido: modelo dijo ${result.totalWeight}${unit}, calculado=${correctTotal}${unit}`
@@ -158,21 +190,52 @@ function validateAndFix(result: AnalysisResult): AnalysisResult {
     result.totalWeight = correctTotal;
   }
 
-  // 4. Verificar que los discos están ordenados de mayor a menor
-  //    (de adentro hacia afuera, los más pesados van primero — es lo común)
-  //    Solo avisar, no reordenar.
-  for (const side of ["left", "right"]) {
-    const sidePlates = result.plates
-      .filter((p) => p.position === side)
-      .sort((a, b) => a.index - b.index);
+  // 3. Expandir plates_one_side → plates (ambos lados) para compatibilidad
+  const fullPlates: {
+    position: string;
+    index: number;
+    color: string;
+    weight: number;
+    confidence: number;
+  }[] = [];
 
-    for (let i = 1; i < sidePlates.length; i++) {
-      if (sidePlates[i].weight > sidePlates[i - 1].weight) {
-        warnings.push(
-          `Lado ${side}: disco externo más pesado que el interno — poco común, verificar`
-        );
-        break;
-      }
+  for (const plate of result.plates_one_side) {
+    fullPlates.push({
+      position: "left",
+      index: plate.index,
+      color: plate.color,
+      weight: plate.weight,
+      confidence: plate.confidence,
+    });
+    fullPlates.push({
+      position: "right",
+      index: plate.index,
+      color: plate.color,
+      weight: plate.weight,
+      confidence: plate.confidence,
+    });
+  }
+
+  result.plates = fullPlates;
+
+  // 4. Pasar possible_hidden_plates a la app para confirmación
+  if (
+    result.possible_hidden_plates &&
+    result.possible_hidden_plates.length > 0
+  ) {
+    result.needs_confirmation = result.possible_hidden_plates;
+  }
+
+  // 5. Verificar orden de discos (pesados adentro, livianos afuera)
+  const sortedByIndex = [...result.plates_one_side].sort(
+    (a, b) => a.index - b.index
+  );
+  for (let i = 1; i < sortedByIndex.length; i++) {
+    if (sortedByIndex[i].weight > sortedByIndex[i - 1].weight) {
+      warnings.push(
+        `Disco externo #${sortedByIndex[i].index} (${sortedByIndex[i].weight}${unit}) es más pesado que #${sortedByIndex[i - 1].index} (${sortedByIndex[i - 1].weight}${unit}) — poco común`
+      );
+      break;
     }
   }
 
@@ -268,14 +331,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ============================================================
-    // LLAMADA A CLAUDE
-    // Cambios vs tu versión:
-    // - temperature 0.2 (más determinista, menos "creatividad")
-    // - max_tokens 1024 (el JSON no necesita más, y fuerza concisión)
-    // - user message simplificado (las reglas ya están en system)
-    // ============================================================
-
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -286,7 +341,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 1024,
-        temperature: 0.2,
+        temperature: 0.1,
         system: SYSTEM_PROMPT,
         messages: [
           {
@@ -324,6 +379,7 @@ Deno.serve(async (req) => {
 
     const data = await response.json();
     const content = data.content?.[0]?.text ?? "";
+    console.log("Claude response:", content);
 
     let result: AnalysisResult;
     try {
@@ -340,10 +396,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validar y corregir
+    // Validar, corregir, y transformar
     result = validateAndFix(result);
-
-    // Transformar al formato que espera la app
     result = transformToDiscs(result);
 
     return new Response(JSON.stringify(result), {
