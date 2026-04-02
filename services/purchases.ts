@@ -14,11 +14,15 @@ export async function configurePurchases(userId: string) {
   if (isConfigured || !REVENUECAT_API_KEY) return;
 
   if (Platform.OS === "ios") {
-    Purchases.configure({
-      apiKey: REVENUECAT_API_KEY,
-      appUserID: userId,
-    });
-    isConfigured = true;
+    try {
+      Purchases.configure({
+        apiKey: REVENUECAT_API_KEY,
+        appUserID: userId,
+      });
+      isConfigured = true;
+    } catch {
+      // Expo Go no soporta RevenueCat nativo, ignorar
+    }
   }
 }
 

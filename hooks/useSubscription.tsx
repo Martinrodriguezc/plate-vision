@@ -38,14 +38,23 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
     try {
       await configurePurchases(user.id);
+    } catch {
+      // Expo Go no soporta RevenueCat
+    }
+
+    try {
       const proStatus = await checkProStatus();
       setIsPro(proStatus);
+    } catch {
+      setIsPro(false);
+    }
 
-      const { remaining, total } = await canScanToday(proStatus);
+    try {
+      const { remaining, total } = await canScanToday(false);
       setScansRemaining(remaining);
       setScansTotal(total);
     } catch {
-      // Silently fail - default to free
+      // Default free values
     } finally {
       setLoading(false);
     }

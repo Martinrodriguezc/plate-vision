@@ -37,22 +37,27 @@ BARRAS:
 - Estándar/doméstica: 10 kg (diámetro uniforme)
 - EZ curl: 8-10 kg
 
+═══ REGLA CRÍTICA ═══
+
+SOLO cuenta discos que estén FÍSICAMENTE INSERTADOS EN LA BARRA (atravesados por la manga/sleeve de la barra). IGNORA COMPLETAMENTE:
+- Discos apoyados en el piso
+- Discos en racks de almacenamiento
+- Discos apoyados contra la pared o el banco
+- Discos que alguien está cargando con las manos
+- Cualquier disco que NO esté ensartado en la barra
+
 ═══ PROCESO DE ANÁLISIS (OBLIGATORIO) ═══
 
-PASO 1: Describe la escena general. ¿Qué tipo de rack/banco ves? ¿Hay discos EN EL PISO que NO están en la barra? Identifícalos y EXCLÚYELOS.
+PASO 1: Identifica la barra. Tipo y peso estimado. Ubica dónde están las mangas (extremos) donde van los discos.
 
-PASO 2: Identifica la barra. Tipo y peso estimado.
-
-PASO 3: Analiza el LADO IZQUIERDO de la barra (visto desde la foto). Enumera CADA disco de afuera hacia adentro:
+PASO 2: Elige el lado de la barra donde MEJOR se ven los discos (el lado más cercano a la cámara o con mejor ángulo). Enumera CADA disco de afuera hacia adentro:
 - "Disco 1 (más externo): [color/tamaño/número visible] → Xkg (confianza: alta/media/baja)"
 - "Disco 2: ..."
 - Fíjate en: grosor relativo entre discos, números impresos, colores, diámetros diferentes.
 
-PASO 4: Analiza el LADO DERECHO igual.
+PASO 3: Mira el otro lado. Si se ve claramente, enumera sus discos igual. Si NO se ve bien (tapado por el rack, ángulo malo, o está lejos), ASUME QUE ES IDÉNTICO al lado que sí viste. Esto es lo normal en un gym.
 
-PASO 5: Verifica simetría. Los lados SUELEN ser iguales pero NO siempre. Si ves diferencias, repórtalas.
-
-PASO 6: Calcula el total. Escribe la suma explícita: "barra(20) + izq(25+15+10) + der(25+15+10) = 120kg"
+PASO 4: Calcula el total. Escribe la suma explícita: "barra(20) + izq(25+15+10) + der(25+15+10) = 120kg"
 
 ═══ FEW-SHOT EXAMPLES ═══
 
@@ -163,11 +168,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 16000,
-        thinking: {
-          type: "enabled",
-          budget_tokens: 10000,
-        },
+        max_tokens: 2048,
         system: SYSTEM_PROMPT,
         messages: [
           {
@@ -185,13 +186,11 @@ Deno.serve(async (req) => {
                 type: "text",
                 text: `Analiza esta barra de pesas. Resultado en ${unit}.
 
-Sigue el proceso de 6 pasos OBLIGATORIO. En el paso 3 y 4, fíjate especialmente en:
-- El GROSOR de cada disco (un disco de 25kg es notablemente más grueso que uno de 10kg)
-- Números impresos visibles en los discos
-- Cambios de diámetro entre discos apilados
-- Discos pequeños de metal que pueden estar ocultos detrás de los grandes
+REGLA #1: SOLO discos que estén INSERTADOS en la barra. Si ves discos en el piso, contra la pared, o en cualquier otro lugar que NO sea la barra, IGNÓRALOS por completo.
 
-IMPORTANTE: Solo cuenta discos que estén CARGADOS EN LA BARRA. Ignora discos en el piso, en racks, o apoyados contra algo.
+REGLA #2: Si un lado de la barra no se ve bien, ASUME que tiene los mismos discos que el lado que sí ves.
+
+Fíjate en: grosor relativo, números impresos, colores, diámetros. Cada franja de color diferente en los discos apilados = 1 disco separado.
 
 Responde SOLO con JSON válido.`,
               },
@@ -214,14 +213,7 @@ Responde SOLO con JSON válido.`,
     }
 
     const data = await response.json();
-
-    // Con extended thinking, el texto viene en el último content block de tipo "text"
-    let content = "";
-    for (const block of data.content ?? []) {
-      if (block.type === "text") {
-        content = block.text;
-      }
-    }
+    const content = data.content?.[0]?.text ?? "";
 
     let result;
     try {
